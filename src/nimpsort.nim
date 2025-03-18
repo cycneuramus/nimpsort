@@ -12,18 +12,25 @@ proc sortImports(line: string): string =
     return line
 
   # Everything after "import" is in group(0)
-  let restText = line[m.group(0)]
+  var importPart = line[m.group(0)]
 
-  # 2) If there's a bracket group, e.g. "std/[os, strutils]"
+  # 2) Extract inline comments
+  let commentIndex = importPart.find('#')
+  var comment: string
+  if commentIndex != -1:
+    comment = importPart[commentIndex..^1]
+    importPart = importPart[0..<commentIndex].strip()
+
+  # 3) Handle bracketed imports, e.g. "std/[os, strutils]"
   var m2 = RegexMatch2()
   let bracketRe = re2"^(.*)\[([^\]]+)\](.*)$"
-  if match(restText, bracketRe, m2):
+  if match(importPart, bracketRe, m2):
     # group(0) => prefix (before '[')
     # group(1) => inside brackets
     # group(2) => suffix (after ']')
 
-    let prefix = restText[m2.group(0)]
-    let inside = restText[m2.group(1)]
+    let prefix = importPart[m2.group(0)]
+    let inside = importPart[m2.group(1)]
     # let suffix = restText[m2.group(2)] # no use for this currently
 
     var modules = inside.split(",")
@@ -33,13 +40,17 @@ proc sortImports(line: string): string =
 
     result = "import " & prefix & "[" & modules.join(", ") & "]"
   else:
-    # 3) No brackets => comma‐separated modules
-    var mods = restText.split(",")
+    # 4) No brackets => comma‐separated modules
+    var mods = importPart.split(",")
     for i in 0 .. mods.high:
       mods[i] = mods[i].strip()
     mods.sort()
 
     result = "import " & mods.join(", ")
+
+  # 5) Reattach inline comments if applicable
+  if comment.len > 0:
+    result &= " " & comment
 
 when isMainModule:
   if paramCount() < 1:
