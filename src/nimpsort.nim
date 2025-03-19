@@ -1,4 +1,4 @@
-import std/[algorithm, strutils, os, sequtils]
+import std/[algorithm, os, sequtils, strutils]
 
 type ImportParts = tuple[
   prefix: string,
@@ -25,7 +25,7 @@ func parseImportLine(line: string): ImportParts =
   var mainPart = lineNoComment[startPos..^1].strip()
 
   # 3) Handle prefix usage (e.g. "foo/")
-  let slashIdx = mainPart.find('/')
+  let slashIdx = mainPart.rfind('/') # rfind since there may be subpaths
   parts.isPrefixed = slashIdx != -1
 
   if parts.isPrefixed:
