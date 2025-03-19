@@ -1,56 +1,71 @@
-import std/[algorithm, os, strutils]
-import pkg/regex
+import std/[algorithm, strutils, os, sequtils]
 
-proc sortImports(line: string): string =
-  ## If the line is an `import` statement, sort its modules alphabetically.
-  ## Otherwise return line unchanged.
+type ImportParts = tuple[
+  prefix: string,
+  modules: string,
+  comment: string,
+  isPrefixed: bool,
+  isBracketed: bool
+]
 
-  # 1) Match lines starting with "import ..." (skips commented lines)
-  var m = RegexMatch2()
-  let importLineRe = re2"^\s*import\s+(.*)$"
-  if not match(line, importLineRe, m):
-    return line
+func parseImportLine(line: string): ImportParts =
+  var parts: ImportParts
 
-  # Everything after "import" is in group(0)
-  var importPart = line[m.group(0)]
+  # 1) Handle comment
+  let cmtIdx = line.find('#')
+  if cmtIdx != -1:
+    parts.comment = line[cmtIdx .. ^1]
+  let lineNoComment =
+    if cmtIdx != -1: line[0 .. cmtIdx-1]
+    else: line
 
-  # 2) Extract inline comments
-  let commentIndex = importPart.find('#')
-  var comment: string
-  if commentIndex != -1:
-    comment = importPart[commentIndex..^1]
-    importPart = importPart[0..<commentIndex].strip()
+  # 2) Strip away "import " from the front
+  let importWord = "import"
+  let startPos = importWord.len
+  var mainPart = lineNoComment[startPos..^1].strip()
 
-  # 3) Handle bracketed imports, e.g. "std/[os, strutils]"
-  var m2 = RegexMatch2()
-  let bracketRe = re2"^(.*)\[([^\]]+)\](.*)$"
-  if match(importPart, bracketRe, m2):
-    # group(0) => prefix (before '[')
-    # group(1) => inside brackets
-    # group(2) => suffix (after ']')
+  # 3) Handle prefix usage (e.g. "foo/")
+  let slashIdx = mainPart.find('/')
+  parts.isPrefixed = slashIdx != -1
 
-    let prefix = importPart[m2.group(0)]
-    let inside = importPart[m2.group(1)]
-    # let suffix = restText[m2.group(2)] # no use for this currently
+  if parts.isPrefixed:
+    parts.prefix = mainPart[0 .. slashIdx-1].strip()
+    mainPart = mainPart[slashIdx+1 .. ^1].strip()
 
-    var modules = inside.split(",")
-    for i in 0 .. modules.high:
-      modules[i] = modules[i].strip()
-    modules.sort()
+  # 4) Handle bracket usage (e.g. foo/[bar, baz])
+  let bracketOpenIdx = mainPart.find('[')
+  parts.isBracketed = bracketOpenIdx != -1
 
-    result = "import " & prefix & "[" & modules.join(", ") & "]"
+  if parts.isBracketed:
+    let bracketCloseIdx = mainPart.find(']', bracketOpenIdx)
+    if bracketCloseIdx != -1:
+      parts.modules = mainPart[bracketOpenIdx+1 .. bracketCloseIdx-1].strip()
+    else:
+      # In case of missing ']', treat everything from '[' onward as modules
+      parts.modules = mainPart[bracketOpenIdx+1 .. ^1].strip()
   else:
-    # 4) No brackets => comma‐separated modules
-    var modules = importPart.split(",")
-    for i in 0 .. modules.high:
-      modules[i] = modules[i].strip()
-    modules.sort()
+    parts.modules = mainPart
 
-    result = "import " & modules.join(", ")
+  return parts
 
-  # 5) Reattach inline comments if applicable
-  if comment.len > 0:
-    result &= " " & comment
+func sortImports(line: string): string =
+  let parts = parseImportLine(line)
+  var modules = parts.modules
+    .split(",")
+    .mapIt(it.strip())
+  modules.sort()
+
+  result = "import "
+  if parts.isPrefixed:
+    result &= parts.prefix & "/"
+
+  if parts.isBracketed:
+    result &= "[" & modules.join(", ") & "]"
+  else:
+    result &= modules.join(", ")
+
+  if not parts.comment.isEmptyOrWhitespace:
+    result &= " " & parts.comment
 
 when isMainModule:
   if paramCount() < 1:
@@ -64,7 +79,9 @@ when isMainModule:
 
   var output: seq[string]
   for line in lines(inputFile):
-    let sorted = sortImports(line)
-    output.add(sorted)
+    if line.startsWith("import"):
+      output.add(line.sortImports)
+    else:
+      output.add(line)
 
   writeFile(inputFile, output.join("\n"))
