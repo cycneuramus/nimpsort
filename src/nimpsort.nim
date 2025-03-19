@@ -41,12 +41,12 @@ proc sortImports(line: string): string =
     result = "import " & prefix & "[" & modules.join(", ") & "]"
   else:
     # 4) No brackets => comma‐separated modules
-    var mods = importPart.split(",")
-    for i in 0 .. mods.high:
-      mods[i] = mods[i].strip()
-    mods.sort()
+    var modules = importPart.split(",")
+    for i in 0 .. modules.high:
+      modules[i] = modules[i].strip()
+    modules.sort()
 
-    result = "import " & mods.join(", ")
+    result = "import " & modules.join(", ")
 
   # 5) Reattach inline comments if applicable
   if comment.len > 0:
