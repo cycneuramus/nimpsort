@@ -5,51 +5,65 @@ type ImportParts = tuple[
   modules: string,
   comment: string,
   isPrefixed: bool,
-  isBracketed: bool
+  isBracketed: bool,
+  isCommented: bool
 ]
 
 func parseImportLine(line: string): ImportParts =
   var parts: ImportParts
 
-  # 1) Handle comment
-  let cmtIdx = line.find('#')
-  if cmtIdx != -1:
-    parts.comment = line[cmtIdx .. ^1]
-  let lineNoComment =
-    if cmtIdx != -1: line[0 .. cmtIdx-1]
-    else: line
+  # 1) Strip away "import " from the front
+  let importPrefixLen = "import".len
+  if line.len <= importPrefixLen:
+    return parts # Malformed or empty line after "import"
+  var postImport = line[importPrefixLen .. high(line)].strip()
 
-  # 2) Strip away "import " from the front
-  let importWord = "import"
-  let startPos = importWord.len
-  var mainPart = lineNoComment[startPos..^1].strip()
+  # 2) Extract significant indices in one pass
+  var commentIdx, lastSlashIdx, bracketOpenIdx, bracketCloseIdx: int = -1
+  for i in 0 ..< postImport.len:
+    let ch = postImport[i]
+    if ch == '#':
+      commentIdx = i
+      break # once we see a comment start, no need to parse further
+    elif ch == '/':
+      # Update lastSlashIdx each time we see '/', so in the end it's effectively rfind()
+      lastSlashIdx = i
+    elif ch == '[':
+      if bracketOpenIdx == -1:
+        bracketOpenIdx = i
+    elif ch == ']':
+      # Only set bracketClose if we found an opening bracket earlier and haven't set bracketClose yet
+      if bracketOpenIdx != -1 and bracketCloseIdx == -1:
+        bracketCloseIdx = i
 
-  # 3) Handle prefix usage (e.g. "foo/")
-  let slashIdx = mainPart.rfind('/') # rfind since there may be subpaths
-  parts.isPrefixed = slashIdx != -1
-
-  if parts.isPrefixed:
-    parts.prefix = mainPart[0 .. slashIdx-1].strip()
-    mainPart = mainPart[slashIdx+1 .. ^1].strip()
-
-  # 4) Handle bracket usage (e.g. foo/[bar, baz])
-  let bracketOpenIdx = mainPart.find('[')
+  parts.isCommented = commentIdx != -1
+  parts.isPrefixed = lastSlashIdx != -1
   parts.isBracketed = bracketOpenIdx != -1
 
-  if parts.isBracketed:
-    let bracketCloseIdx = mainPart.find(']', bracketOpenIdx)
-    if bracketCloseIdx != -1:
-      parts.modules = mainPart[bracketOpenIdx+1 .. bracketCloseIdx-1].strip()
-    else:
-      # In case of missing ']', treat everything from '[' onward as modules
-      parts.modules = mainPart[bracketOpenIdx+1 .. ^1].strip()
+  # 3) Extract comment and strip from line
+  if parts.isCommented:
+    parts.comment = postImport[commentIdx .. ^1]
+    postImport = postImport[0 .. commentIdx-1].strip()
+
+  # 4) Extract prefix (e.g. "foo/")
+  if parts.isPrefixed:
+    parts.prefix = postImport[0 .. lastSlashIdx-1].strip()
+
+  # 5) Extract modules
+  if parts.isBracketed and parts.isPrefixed:
+    parts.modules = postImport[lastSlashIdx+2 .. ^2].strip()
+  elif parts.isBracketed:
+    parts.modules = postImport[bracketOpenIdx+1 .. bracketCloseIdx-1].strip()
+  elif parts.isPrefixed:
+    parts.modules = postImport[lastSlashIdx+1 .. ^1].strip()
   else:
-    parts.modules = mainPart
+    parts.modules = postImport
 
   return parts
 
 func sortImports(line: string): string =
   let parts = parseImportLine(line)
+
   var modules = parts.modules
     .split(",")
     .mapIt(it.strip())
@@ -67,7 +81,7 @@ func sortImports(line: string): string =
   else:
     result.add(modules.join(", "))
 
-  if not parts.comment.isEmptyOrWhitespace:
+  if parts.isCommented:
     result.add(" ")
     result.add(parts.comment)
 
