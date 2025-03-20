@@ -57,15 +57,19 @@ func sortImports(line: string): string =
 
   result = "import "
   if parts.isPrefixed:
-    result &= parts.prefix & "/"
+    result.add(parts.prefix)
+    result.add("/")
 
   if parts.isBracketed:
-    result &= "[" & modules.join(", ") & "]"
+    result.add("[")
+    result.add(modules.join(", "))
+    result.add("]")
   else:
-    result &= modules.join(", ")
+    result.add(modules.join(", "))
 
   if not parts.comment.isEmptyOrWhitespace:
-    result &= " " & parts.comment
+    result.add(" ")
+    result.add(parts.comment)
 
 when isMainModule:
   if paramCount() < 1:
