@@ -1,26 +1,28 @@
 import std/[algorithm, os, sequtils, strutils]
 
-type ImportParts =
+type ImportLine =
   tuple[
     prefix: string,
     modules: string,
     comment: string,
-    isPrefixed: bool,
-    isBracketed: bool,
-    isCommented: bool,
+    hasPrefix: bool,
+    hasBrackets: bool,
+    hasComment: bool,
   ]
 
-func parseImportLine(line: string): ImportParts =
-  var parts: ImportParts
+const notFound = -1
 
-  # 1) Strip away "import " from the front
+func parseImport(line: string): ImportLine =
+  var parts: ImportLine
+
+  # Strip away "import " from the front
   let importPrefixLen = "import".len
   if line.len <= importPrefixLen:
     return parts # Malformed or empty line after "import"
   var postImport = line[importPrefixLen .. high(line)].strip()
 
-  # 2) Extract significant indices in one pass
-  var commentIdx, lastSlashIdx, bracketOpenIdx, bracketCloseIdx: int = -1
+  # Extract significant indices in one pass
+  var commentIdx, lastSlashIdx, bracketOpenIdx, bracketCloseIdx = notFound
   for i in 0 ..< postImport.len:
     let ch = postImport[i]
     if ch == '#':
@@ -30,59 +32,59 @@ func parseImportLine(line: string): ImportParts =
       # Update lastSlashIdx each time we see '/', so in the end it's effectively rfind()
       lastSlashIdx = i
     elif ch == '[':
-      if bracketOpenIdx == -1:
+      if bracketOpenIdx == notFound:
         bracketOpenIdx = i
     elif ch == ']':
-      # Only set bracketClose if we found an opening bracket earlier and haven't set bracketClose yet
-      if bracketOpenIdx != -1 and bracketCloseIdx == -1:
+      # Only set bracketClose if we found an opening bracket and haven't set bracketClose
+      if bracketOpenIdx != notFound and bracketCloseIdx == notFound:
         bracketCloseIdx = i
 
-  parts.isCommented = commentIdx != -1
-  parts.isPrefixed = lastSlashIdx != -1
-  parts.isBracketed = bracketOpenIdx != -1
+  parts.hasComment = commentIdx != notFound
+  parts.hasPrefix = lastSlashIdx != notFound
+  parts.hasBrackets = bracketOpenIdx != notFound
 
-  # 3) Extract comment and strip from line
-  if parts.isCommented:
+  # Extract comment and strip from line
+  if parts.hasComment:
     parts.comment = postImport[commentIdx .. ^1]
     postImport = postImport[0 .. commentIdx - 1].strip()
 
-  # 4) Extract prefix (e.g. "foo/")
-  if parts.isPrefixed:
+  # Extract prefix (e.g. "foo/")
+  if parts.hasPrefix:
     parts.prefix = postImport[0 .. lastSlashIdx - 1].strip()
 
-  # 5) Extract modules
-  if parts.isBracketed and parts.isPrefixed:
-    parts.modules = postImport[lastSlashIdx + 2 .. ^2].strip()
-  elif parts.isBracketed:
-    parts.modules = postImport[bracketOpenIdx + 1 .. bracketCloseIdx - 1].strip()
-  elif parts.isPrefixed:
-    parts.modules = postImport[lastSlashIdx + 1 .. ^1].strip()
-  else:
-    parts.modules = postImport
+  # Extract modules
+  parts.modules =
+    if parts.hasBrackets and parts.hasPrefix:
+      postImport[lastSlashIdx + 2 .. ^2].strip()
+    elif parts.hasBrackets:
+      postImport[bracketOpenIdx + 1 .. bracketCloseIdx - 1].strip()
+    elif parts.hasPrefix:
+      postImport[lastSlashIdx + 1 .. ^1].strip()
+    else:
+      postImport
 
   return parts
 
 func sortImports(line: string): string =
-  let parts = parseImportLine(line)
-
-  var modules = parts.modules.split(",").mapIt(it.strip())
+  let importStmt = parseImport(line)
+  var modules = importStmt.modules.split(",").mapIt(it.strip())
   modules.sort()
 
   result = "import "
-  if parts.isPrefixed:
-    result.add(parts.prefix)
+  if importStmt.hasPrefix:
+    result.add(importStmt.prefix)
     result.add("/")
 
-  if parts.isBracketed:
+  if importStmt.hasBrackets:
     result.add("[")
     result.add(modules.join(", "))
     result.add("]")
   else:
     result.add(modules.join(", "))
 
-  if parts.isCommented:
+  if importStmt.hasComment:
     result.add(" ")
-    result.add(parts.comment)
+    result.add(importStmt.comment)
 
 when isMainModule:
   if paramCount() < 1:
