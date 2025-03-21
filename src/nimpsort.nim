@@ -1,13 +1,14 @@
 import std/[algorithm, os, sequtils, strutils]
 
-type ImportParts = tuple[
-  prefix: string,
-  modules: string,
-  comment: string,
-  isPrefixed: bool,
-  isBracketed: bool,
-  isCommented: bool
-]
+type ImportParts =
+  tuple[
+    prefix: string,
+    modules: string,
+    comment: string,
+    isPrefixed: bool,
+    isBracketed: bool,
+    isCommented: bool,
+  ]
 
 func parseImportLine(line: string): ImportParts =
   var parts: ImportParts
@@ -43,19 +44,19 @@ func parseImportLine(line: string): ImportParts =
   # 3) Extract comment and strip from line
   if parts.isCommented:
     parts.comment = postImport[commentIdx .. ^1]
-    postImport = postImport[0 .. commentIdx-1].strip()
+    postImport = postImport[0 .. commentIdx - 1].strip()
 
   # 4) Extract prefix (e.g. "foo/")
   if parts.isPrefixed:
-    parts.prefix = postImport[0 .. lastSlashIdx-1].strip()
+    parts.prefix = postImport[0 .. lastSlashIdx - 1].strip()
 
   # 5) Extract modules
   if parts.isBracketed and parts.isPrefixed:
-    parts.modules = postImport[lastSlashIdx+2 .. ^2].strip()
+    parts.modules = postImport[lastSlashIdx + 2 .. ^2].strip()
   elif parts.isBracketed:
-    parts.modules = postImport[bracketOpenIdx+1 .. bracketCloseIdx-1].strip()
+    parts.modules = postImport[bracketOpenIdx + 1 .. bracketCloseIdx - 1].strip()
   elif parts.isPrefixed:
-    parts.modules = postImport[lastSlashIdx+1 .. ^1].strip()
+    parts.modules = postImport[lastSlashIdx + 1 .. ^1].strip()
   else:
     parts.modules = postImport
 
@@ -64,9 +65,7 @@ func parseImportLine(line: string): ImportParts =
 func sortImports(line: string): string =
   let parts = parseImportLine(line)
 
-  var modules = parts.modules
-    .split(",")
-    .mapIt(it.strip())
+  var modules = parts.modules.split(",").mapIt(it.strip())
   modules.sort()
 
   result = "import "
