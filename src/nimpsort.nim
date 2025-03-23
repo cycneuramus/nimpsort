@@ -1,21 +1,19 @@
 import std/[algorithm, os, sequtils, strutils]
 
 type ImportLine = object
-  prefix: string
-  modules: seq[string]
-  comment: string
-  hasBrackets: bool
-  hasComment: bool
+  prefix*: string
+  modules*: seq[string]
+  comment*: string
+  hasBrackets*: bool
+  hasComment*: bool
 
 const notFound = -1
 
-func parseImport(line: string): ImportLine =
+func parseImport*(line: string): ImportLine =
   var parts: ImportLine
 
   # Strip away "import " from the front
   let importPrefixLen = "import".len
-  if line.len <= importPrefixLen:
-    return parts # Malformed or empty line after "import"
   var content = line[importPrefixLen .. high(line)].strip()
 
   # Extract significant indices in one pass
@@ -51,8 +49,11 @@ func parseImport(line: string): ImportLine =
 
   return parts
 
-func sortImports(line: string): string =
+func sortImports*(line: string): string =
   var importStmt = parseImport(line)
+  if importStmt.modules.len == 0:
+    return line
+
   importStmt.modules.sort()
 
   result = "import "
@@ -69,6 +70,17 @@ func sortImports(line: string): string =
     result.add(" ")
     result.add(importStmt.comment)
 
+func process*(content: string): string =
+  var output: seq[string]
+
+  for line in content.splitLines:
+    if line.startsWith("import") and line.strip() != "import":
+      output.add(line.sortImports)
+    else:
+      output.add(line)
+
+  return output.join("\n")
+
 when isMainModule:
   if paramCount() < 1:
     echo "Usage: ", getAppFilename(), " <filename.nim>"
@@ -79,11 +91,6 @@ when isMainModule:
     echo "Error: file not found: ", inputFile
     quit(1)
 
-  var output: seq[string]
-  for line in lines(inputFile):
-    if line.startsWith("import"):
-      output.add(line.sortImports)
-    else:
-      output.add(line)
-
-  writeFile(inputFile, output.join("\n"))
+  let input = readFile(inputFile)
+  let output = process(input)
+  writeFile(inputFile, output)
