@@ -1,14 +1,12 @@
 import std/[algorithm, os, sequtils, strutils]
 
-type ImportLine =
-  tuple[
-    prefix: string,
-    modules: string,
-    comment: string,
-    hasPrefix: bool,
-    hasBrackets: bool,
-    hasComment: bool,
-  ]
+type ImportLine = object
+  prefix: string
+  modules: string
+  comment: string
+  hasPrefix: bool
+  hasBrackets: bool
+  hasComment: bool
 
 const notFound = -1
 
