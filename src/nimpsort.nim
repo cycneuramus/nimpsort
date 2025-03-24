@@ -42,7 +42,11 @@ func parseImport*(line: string): ImportLine =
   # Extract content inside brackets and store prefix
   if parts.hasBrackets:
     parts.prefix = content[0 .. bracketOpenIdx - 1].strip()
-    content = content[bracketOpenIdx + 1 .. bracketCloseIdx - 1].strip()
+    if bracketCloseIdx != notFound:
+      content = content[bracketOpenIdx + 1 .. bracketCloseIdx - 1].strip()
+    else:
+      # No closing bracket found, treat remainder as module content
+      content = content[bracketOpenIdx + 1 .. ^1].strip()
 
   # Extract modules
   parts.modules = content.split(",").mapIt(it.strip())
