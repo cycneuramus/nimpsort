@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.0"
+version       = "0.1.1"
 author        = "cycneuramus"
 description   = "Sort imports in Nim source files"
 license       = "GPL-3.0-only"
