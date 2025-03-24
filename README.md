@@ -2,6 +2,10 @@
 
 This is a simple formatting tool that alphabetically sorts top-level import statements in Nim source files. It currently supports regular comma-separated imports, bracketed imports, and prefixed imports. It will also preserve (and properly align) postfix comments, if any.
 
+## Installation
+
+`nimble install nimpsort`
+
 ## Example
 
 Given the file `myprog.nim`:
