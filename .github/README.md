@@ -4,7 +4,21 @@ This is a simple formatting tool that alphabetically sorts top-level import stat
 
 ## Installation
 
-`nimble install nimpsort`
+**Using Nimble**
+
+```bash
+nimble install nimpsort
+```
+
+**Compiling from source**
+
+```bash
+nim c -d:release src/nimpsort.nim
+```
+
+**Downloading binary**
+
+Pre-built binaries for Linux (AMD64) are available on the [release page](https://github.com/cycneuramus/nimpsort/releases).
 
 ## Example
 
