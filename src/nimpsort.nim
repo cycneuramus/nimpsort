@@ -1,6 +1,6 @@
 import std/[algorithm, os, sequtils, strutils]
 
-type ImportLine = object
+type Import = object
   prefix*: string
   modules*: seq[string]
   comment*: string
@@ -9,39 +9,42 @@ type ImportLine = object
 
 const notFound = -1
 
-func parseImport*(line: string): ImportLine =
-  var parts: ImportLine
+func parseImport*(line: string): Import =
+  var imp: Import
 
   # Strip away "import " from the front
   let importPrefixLen = "import".len
-  var content = line[importPrefixLen .. high(line)].strip()
+  var content = line[importPrefixLen .. line.high()].strip()
 
   # Extract significant indices in one pass
   var commentIdx, bracketOpenIdx, bracketCloseIdx = notFound
   for i in 0 ..< content.len:
-    let ch = content[i]
-    if ch == '#':
+    let char = content[i]
+    case char
+    of '#':
       commentIdx = i
       break # No need to parse beyond comment start
-    elif ch == '[':
+    of '[':
       if bracketOpenIdx == notFound:
         bracketOpenIdx = i
-    elif ch == ']':
+    of ']':
       # Only set bracketClose if we found an opening bracket and haven't set bracketClose
       if bracketOpenIdx != notFound and bracketCloseIdx == notFound:
         bracketCloseIdx = i
+    else:
+      discard
 
-  parts.hasComment = commentIdx != notFound
-  parts.hasBrackets = bracketOpenIdx != notFound
+  imp.hasComment = commentIdx != notFound
+  imp.hasBrackets = bracketOpenIdx != notFound
 
   # Extract comment and strip from line
-  if parts.hasComment:
-    parts.comment = content[commentIdx .. ^1]
+  if imp.hasComment:
+    imp.comment = content[commentIdx .. ^1]
     content = content[0 .. commentIdx - 1].strip()
 
   # Extract content inside brackets and store prefix
-  if parts.hasBrackets:
-    parts.prefix = content[0 .. bracketOpenIdx - 1].strip()
+  if imp.hasBrackets:
+    imp.prefix = content[0 .. bracketOpenIdx - 1].strip()
     if bracketCloseIdx != notFound:
       content = content[bracketOpenIdx + 1 .. bracketCloseIdx - 1].strip()
     else:
@@ -49,37 +52,37 @@ func parseImport*(line: string): ImportLine =
       content = content[bracketOpenIdx + 1 .. ^1].strip()
 
   # Extract modules
-  parts.modules = content.split(",").mapIt(it.strip())
+  imp.modules = content.split(",").mapIt(it.strip())
 
-  return parts
+  return imp
 
 func sortImports*(line: string): string =
-  var importStmt = parseImport(line)
-  if importStmt.modules.len == 0:
+  var imp = line.parseImport()
+  if imp.modules.len == 0:
     return line
 
-  importStmt.modules.sort()
+  imp.modules.sort()
 
   result = "import "
-  if importStmt.hasBrackets:
-    if importStmt.prefix.len > 0:
-      result.add(importStmt.prefix)
+  if imp.hasBrackets:
+    if imp.prefix.len > 0:
+      result.add(imp.prefix)
     result.add("[")
-    result.add(importStmt.modules.join(", "))
+    result.add(imp.modules.join(", "))
     result.add("]")
   else:
-    result.add(importStmt.modules.join(", "))
+    result.add(imp.modules.join(", "))
 
-  if importStmt.hasComment:
+  if imp.hasComment:
     result.add(" ")
-    result.add(importStmt.comment)
+    result.add(imp.comment)
 
 func process*(content: string): string =
   var output: seq[string]
 
-  for line in content.splitLines:
+  for line in content.splitLines():
     if line.startsWith("import") and line.strip() != "import":
-      output.add(line.sortImports)
+      output.add(line.sortImports())
     else:
       output.add(line)
 
@@ -91,10 +94,10 @@ when isMainModule:
     quit(1)
 
   let inputFile = paramStr(1)
-  if not fileExists(inputFile):
+  if not inputFile.fileExists():
     echo "Error: file not found: ", inputFile
     quit(1)
 
-  let input = readFile(inputFile)
-  let output = process(input)
+  let input = inputFile.readFile()
+  let output = input.process()
   writeFile(inputFile, output)
