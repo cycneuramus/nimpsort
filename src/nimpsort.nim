@@ -20,25 +20,40 @@ func splitBracketGroups(stmt: string): seq[string] =
   result.add(stmt[start .. ^1])
 
 func sortBracketGroups(stmt: string): string =
-  var groups: seq[string]
+  var
+    impItems = stmt.splitBracketGroups() # text between commas (incl whitespace)
+    filledItems: seq[int] # indices of non-blank import items
+    impNames: seq[string] # trimmed text of import items
 
-  for bracketGroup in stmt.splitBracketGroups():
-    var group = bracketGroup.strip()
-    if group.len == 0:
+  for idx, item in impItems:
+    var name = item.strip()
+    if name.len == 0:
       continue
 
     let
-      openIdx = group.find('[')
-      closeIdx = group.rfind(']')
+      openIdx = name.find('[')
+      closeIdx = name.rfind(']')
 
     if openIdx >= 0 and closeIdx > openIdx:
-      group =
-        group[0 .. openIdx] & sortBracketGroups(group[openIdx + 1 ..< closeIdx]) &
-        group[closeIdx .. ^1]
-    groups.add(group)
+      # on foo/[bar, baz], sort what's between foo/[]
+      name =
+        name[0 .. openIdx] & sortBracketGroups(name[openIdx + 1 ..< closeIdx]) &
+        name[closeIdx .. ^1]
+    filledItems.add(idx)
+    impNames.add(name)
 
-  groups.sort()
-  groups.join(", ")
+  impNames.sort()
+
+  for sortedPos, itemIdx in filledItems:
+    let
+      item = impItems[itemIdx]
+      leftTrimmed = item.strip(trailing = false)
+      rightTrimmed = item.strip(leading = false)
+      padBefore = item[0 ..< item.len - leftTrimmed.len]
+      padAfter = item[rightTrimmed.len .. ^1]
+    impItems[itemIdx] = padBefore & impNames[sortedPos] & padAfter
+
+  impItems.join(",")
 
 func sortImports*(line: string): string =
   let
@@ -46,8 +61,8 @@ func sortImports*(line: string): string =
     commentIdx = body.find('#')
 
   if commentIdx < 0:
-    return "import " & sortBracketGroups(body)
-  "import " & sortBracketGroups(body[0 ..< commentIdx]) & " " & body[commentIdx .. ^1]
+    return "import" & sortBracketGroups(body)
+  "import" & sortBracketGroups(body[0 ..< commentIdx]) & body[commentIdx .. ^1]
 
 func process*(content: string): string =
   var output: seq[string]
