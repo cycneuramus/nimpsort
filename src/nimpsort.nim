@@ -93,11 +93,12 @@ when isMainModule:
     echo "Usage: ", getAppFilename(), " <filename.nim>"
     quit(1)
 
-  let inputFile = paramStr(1)
-  if not inputFile.fileExists():
-    echo "Error: file not found: ", inputFile
-    quit(1)
+  for file in commandLineParams():
+    if not file.fileExists():
+      echo "Error: file not found: ", file
+      quit(1)
 
-  let input = inputFile.readFile()
-  let output = input.process()
-  writeFile(inputFile, output)
+    let
+      input = file.readFile()
+      output = input.process()
+    writeFile(file, output)
