@@ -96,12 +96,16 @@ when isMainModule:
     echo "Usage: ", getAppFilename(), " <filename.nim>"
     quit(1)
 
+  var err: bool
   for file in commandLineParams():
     if not file.fileExists():
       echo "Error: file not found: ", file
-      quit(1)
+      err = true
+      continue
     let
       input = file.readFile()
       output = input.process()
     if output != input:
       writeFile(file, output)
+  if err:
+    quit(1)
