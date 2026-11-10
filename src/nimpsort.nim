@@ -9,6 +9,9 @@ type Import = object
 
 const notFound = -1
 
+func isImportStmt(line: string): bool =
+  line.startsWith("import") and (line.len == 6 or line[6] notin IdentChars)
+
 func parseImport*(line: string): Import =
   var imp: Import
 
@@ -81,7 +84,7 @@ func process*(content: string): string =
   var output: seq[string]
 
   for line in content.splitLines():
-    if line.startsWith("import") and line.strip() != "import":
+    if line.isImportStmt and line.strip() != "import":
       output.add(line.sortImports())
     else:
       output.add(line)
