@@ -97,8 +97,8 @@ when isMainModule:
     if not file.fileExists():
       echo "Error: file not found: ", file
       quit(1)
-
     let
       input = file.readFile()
       output = input.process()
-    writeFile(file, output)
+    if output != input:
+      writeFile(file, output)
