@@ -55,26 +55,25 @@ func sortBracketGroups(stmt: string): string =
 
   impItems.join(",")
 
-func sortImports*(line: string): string =
-  let
-    body = line["import".len .. ^1]
-    commentIdx = body.find('#')
-
+func sortImport(stmt: string): string =
+  let commentIdx = stmt.find('#')
   if commentIdx < 0:
-    return "import" & sortBracketGroups(body)
-  "import" & sortBracketGroups(body[0 ..< commentIdx]) & body[commentIdx .. ^1]
+    return sortBracketGroups(stmt)
+  sortBracketGroups(stmt[0 ..< commentIdx]) & stmt[commentIdx .. ^1]
 
-func process*(content: string): string =
+func process(content: string): string =
   var output: seq[string]
 
   for line in content.splitLines():
-    # if line.isImportStmt and line.strip() != "import":
-    #   output.add(line.sortImports())
     let
       code = line.strip(trailing = false)
       indent = line.len - code.len
-    if code.isImportStmt and code.strip() != "import":
-      output.add(line[0 ..< indent] & code.sortImports())
+    if code.isImportStmt:
+      output.add(
+        line[0 ..< indent + "import".len] & sortImport(
+          line[indent + "import".len .. ^1]
+        )
+      )
     else:
       output.add(line)
 
