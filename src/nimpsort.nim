@@ -119,7 +119,7 @@ func sortAllImports(source: string): string =
 
 when isMainModule:
   if paramCount() < 1:
-    echo "Usage: ", getAppFilename(), " <filename.nim> ..."
+    echo "Usage: ", getAppFilename().splitFile().name, " <filename.nim> ..."
     quit(1)
 
   var err: bool
