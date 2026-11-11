@@ -61,16 +61,26 @@ func sortCommaList(list: string): string =
   rawItems.join(",")
 
 func sortImportList(importList: string): string =
-  if not importList.safeToSort:
+  let
+    commentStart = importList.find('#')
+    hasComment = commentStart >= 0
+
+  # Ignore comments in multi-line imports
+  if hasComment and "\n" in importList:
     return importList
 
-  let commentStart = importList.find('#')
-  if commentStart < 0:
-    return sortCommaList(importList)
-  if '\n' in importList:
-    return importList # ignore comments in multi-line imports
+  let importCode =
+    if hasComment:
+      importList[0 ..< commentStart]
+    else:
+      importList
 
-  sortCommaList(importList[0 ..< commentStart]) & importList[commentStart .. ^1]
+  if not importCode.safeToSort:
+    return importList
+
+  result = importCode.sortCommaList()
+  if hasComment:
+    result.add(importList[commentStart .. ^1])
 
 func sortAllImports(source: string): string =
   let lines = source.split('\n')
