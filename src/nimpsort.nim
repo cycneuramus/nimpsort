@@ -1,5 +1,9 @@
 import std/[algorithm, os, strutils]
 
+func shouldSort(stmt: string): bool =
+  stmt.count('[') == stmt.count(']') and stmt.count('"') == 0 and stmt.count(';') == 0 and
+    stmt.count('{') == 0 and "except" notin stmt.splitWhitespace
+
 func splitBracketGroups(stmt: string): seq[string] =
   var depth, start = 0
   for idx, char in stmt:
@@ -53,9 +57,15 @@ func sortBracketGroups(stmt: string): string =
   impItems.join(",")
 
 func sortImport(stmt: string): string =
+  if not stmt.shouldSort:
+    return stmt
+
   let commentIdx = stmt.find('#')
   if commentIdx < 0:
     return sortBracketGroups(stmt)
+  if '\n' in stmt:
+    return stmt # ignore comments in multi-line imports
+
   sortBracketGroups(stmt[0 ..< commentIdx]) & stmt[commentIdx .. ^1]
 
 func process(content: string): string =
