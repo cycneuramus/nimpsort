@@ -1,5 +1,7 @@
 import std/[algorithm, os, strutils]
 
+const ImportKeyword = "import"
+
 func indentWidth(line: string): int =
   line.len - line.strip(trailing = false).len
 
@@ -96,8 +98,10 @@ func sortAllImports(source: string): string =
       unindented = line[baseIndent .. ^1]
 
       isImport =
-        not inMultiLineStr and unindented.startsWith("import") and
-        (unindented.len == "import".len or unindented["import".len] notin IdentChars)
+        not inMultiLineStr and unindented.startsWith(ImportKeyword) and (
+          unindented.len == ImportKeyword.len or
+          unindented[ImportKeyword.len] notin IdentChars
+        )
 
     inc(currentLine)
     if line.count("\"\"\"") mod 2 == 1:
@@ -107,7 +111,7 @@ func sortAllImports(source: string): string =
       continue
 
     # Continuation lines = indented deeper than "import"
-    let keywordEnd = baseIndent + "import".len
+    let keywordEnd = baseIndent + ImportKeyword.len
     var importList = line[keywordEnd .. ^1]
     while currentLine < lines.len and not lines[currentLine].isEmptyOrWhitespace and
         lines[currentLine].indentWidth > baseIndent:
