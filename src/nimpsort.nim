@@ -1,8 +1,5 @@
 import std/[algorithm, os, strutils]
 
-func isImportStmt(line: string): bool =
-  line.startsWith("import") and (line.len == 6 or line[6] notin IdentChars)
-
 func splitBracketGroups(stmt: string): seq[string] =
   var depth, start = 0
   for idx, char in stmt:
@@ -64,6 +61,7 @@ func sortImport(stmt: string): string =
 func process(content: string): string =
   var
     output: seq[string]
+    inString = false
     idx = 0
   let lines = content.split('\n')
 
@@ -72,9 +70,14 @@ func process(content: string): string =
       line = lines[idx]
       code = line.strip(trailing = false)
       indent = line.len - code.len
+      isImport =
+        not inString and code.startsWith("import") and
+        (code.len == "import".len or code["import".len] notin IdentChars)
 
     inc(idx)
-    if not code.isImportStmt:
+    if line.count("\"\"\"") mod 2 == 1:
+      inString = not inString
+    if not isImport:
       output.add(line)
       continue
 
