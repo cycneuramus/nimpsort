@@ -12,9 +12,9 @@ func indentWidth(line: string): int =
   line.leadingSpace.len
 
 func safeToSort(importList: string): bool =
-  importList.count('[') == importList.count(']') and importList.count('"') == 0 and
-    importList.count(';') == 0 and importList.count('{') == 0 and
-    "except" notin importList.splitWhitespace
+  importList.count('[') == importList.count(']') and
+    not importList.contains({'"', ';', '{'}) and
+    "except" notin importlist.splitWhitespace
 
 func splitTopLevelCommas(list: string): seq[string] =
   var depth, itemStart = 0
