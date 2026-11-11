@@ -68,8 +68,13 @@ func process*(content: string): string =
   var output: seq[string]
 
   for line in content.splitLines():
-    if line.isImportStmt and line.strip() != "import":
-      output.add(line.sortImports())
+    # if line.isImportStmt and line.strip() != "import":
+    #   output.add(line.sortImports())
+    let
+      code = line.strip(trailing = false)
+      indent = line.len - code.len
+    if code.isImportStmt and code.strip() != "import":
+      output.add(line[0 ..< indent] & code.sortImports())
     else:
       output.add(line)
 
