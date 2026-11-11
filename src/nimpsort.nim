@@ -62,22 +62,31 @@ func sortImport(stmt: string): string =
   sortBracketGroups(stmt[0 ..< commentIdx]) & stmt[commentIdx .. ^1]
 
 func process(content: string): string =
-  var output: seq[string]
+  var
+    output: seq[string]
+    idx = 0
+  let lines = content.split('\n')
 
-  for line in content.splitLines():
+  while idx < lines.len:
     let
+      line = lines[idx]
       code = line.strip(trailing = false)
       indent = line.len - code.len
-    if code.isImportStmt:
-      output.add(
-        line[0 ..< indent + "import".len] & sortImport(
-          line[indent + "import".len .. ^1]
-        )
-      )
-    else:
-      output.add(line)
 
-  return output.join("\n")
+    inc(idx)
+    if not code.isImportStmt:
+      output.add(line)
+      continue
+
+    # Continuation lines = indented deeper than "import"
+    var stmt = line[indent + "import".len .. ^1]
+    while idx < lines.len and lines[idx].strip().len > 0 and
+        lines[idx].len - lines[idx].strip(trailing = false).len > indent:
+      stmt.add("\n" & lines[idx])
+      inc(idx)
+    output.add(line[0 ..< indent + "import".len] & sortImport(stmt))
+
+  output.join("\n")
 
 when isMainModule:
   if paramCount() < 1:
