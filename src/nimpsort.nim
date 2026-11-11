@@ -2,8 +2,14 @@ import std/[algorithm, os, strutils]
 
 const ImportKeyword = "import"
 
+func leadingSpace(str: string): string =
+  str[0 ..< str.len - str.strip(trailing = false).len]
+
+func trailingSpace(str: string): string =
+  str[str.strip(leading = false).len .. ^1]
+
 func indentWidth(line: string): int =
-  line.len - line.strip(trailing = false).len
+  line.leadingSpace.len
 
 func safeToSort(importList: string): bool =
   importList.count('[') == importList.count(']') and importList.count('"') == 0 and
@@ -52,13 +58,9 @@ func sortCommaList(list: string): string =
   trimmedItems.sort()
 
   for sortedIdx, rawIdx in nonBlankIdxs:
-    let
-      rawItem = rawItems[rawIdx]
-      trimmedLeft = rawItem.strip(trailing = false)
-      trimmedRight = rawItem.strip(leading = false)
-      leadingSpace = rawItem[0 ..< rawItem.len - trimmedLeft.len]
-      trailingSpace = rawItem[trimmedRight.len .. ^1]
-    rawItems[rawIdx] = leadingSpace & trimmedItems[sortedIdx] & trailingSpace
+    let rawItem = rawItems[rawIdx]
+    rawItems[rawIdx] =
+      rawItem.leadingSpace & trimmedItems[sortedIdx] & rawItem.trailingSpace
 
   rawItems.join(",")
 
