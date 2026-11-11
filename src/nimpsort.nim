@@ -1,109 +1,115 @@
 import std/[algorithm, os, strutils]
 
-func shouldSort(stmt: string): bool =
-  stmt.count('[') == stmt.count(']') and stmt.count('"') == 0 and stmt.count(';') == 0 and
-    stmt.count('{') == 0 and "except" notin stmt.splitWhitespace
+func indentWidth(line: string): int =
+  line.len - line.strip(trailing = false).len
 
-func splitBracketGroups(stmt: string): seq[string] =
-  var depth, start = 0
-  for idx, char in stmt:
-    case char
+func safeToSort(importList: string): bool =
+  importList.count('[') == importList.count(']') and importList.count('"') == 0 and
+    importList.count(';') == 0 and importList.count('{') == 0 and
+    "except" notin importList.splitWhitespace
+
+func splitTopLevelCommas(list: string): seq[string] =
+  var depth, itemStart = 0
+  for idx, ch in list:
+    case ch
     of '[':
       inc(depth)
     of ']':
       dec(depth)
     of ',':
       if depth == 0:
-        result.add(stmt[start ..< idx])
-        start = idx + 1
+        result.add(list[itemStart ..< idx])
+        itemStart = idx + 1
     else:
       discard
-  result.add(stmt[start .. ^1])
+  result.add(list[itemStart .. ^1])
 
-func sortBracketGroups(stmt: string): string =
+func sortCommaList(list: string): string =
   var
-    impItems = stmt.splitBracketGroups() # text between commas (incl whitespace)
-    filledItems: seq[int] # indices of non-blank import items
-    impNames: seq[string] # trimmed text of import items
+    rawItems = list.splitTopLevelCommas() # text between commas incl whitespace
+    nonBlankIdxs: seq[int] # indices of non-blank import items
+    trimmedItems: seq[string] # non-blank import items stripped of whitespace
 
-  for idx, item in impItems:
-    var name = item.strip()
-    if name.len == 0:
+  for idx, rawItem in rawItems:
+    var item = rawItem.strip()
+    if item.len == 0:
       continue
 
     let
-      openIdx = name.find('[')
-      closeIdx = name.rfind(']')
+      openIdx = item.find('[')
+      closeIdx = item.rfind(']')
 
     if openIdx >= 0 and closeIdx > openIdx:
-      # on foo/[bar, baz], sort what's between foo/[]
-      name =
-        name[0 .. openIdx] & sortBracketGroups(name[openIdx + 1 ..< closeIdx]) &
-        name[closeIdx .. ^1]
-    filledItems.add(idx)
-    impNames.add(name)
+      # on foo/[bar, baz], sort the list between the brackets
+      item =
+        item[0 .. openIdx] & sortCommaList(item[openIdx + 1 ..< closeIdx]) &
+        item[closeIdx .. ^1]
+    nonBlankIdxs.add(idx)
+    trimmedItems.add(item)
 
-  impNames.sort()
+  trimmedItems.sort()
 
-  for sortedPos, itemIdx in filledItems:
+  for sortedIdx, rawIdx in nonBlankIdxs:
     let
-      item = impItems[itemIdx]
-      leftTrimmed = item.strip(trailing = false)
-      rightTrimmed = item.strip(leading = false)
-      padBefore = item[0 ..< item.len - leftTrimmed.len]
-      padAfter = item[rightTrimmed.len .. ^1]
-    impItems[itemIdx] = padBefore & impNames[sortedPos] & padAfter
+      rawItem = rawItems[rawIdx]
+      trimmedLeft = rawItem.strip(trailing = false)
+      trimmedRight = rawItem.strip(leading = false)
+      leadingSpace = rawItem[0 ..< rawItem.len - trimmedLeft.len]
+      trailingSpace = rawItem[trimmedRight.len .. ^1]
+    rawItems[rawIdx] = leadingSpace & trimmedItems[sortedIdx] & trailingSpace
 
-  impItems.join(",")
+  rawItems.join(",")
 
-func sortImport(stmt: string): string =
-  if not stmt.shouldSort:
-    return stmt
+func sortImportList(importList: string): string =
+  if not importList.safeToSort:
+    return importList
 
-  let commentIdx = stmt.find('#')
-  if commentIdx < 0:
-    return sortBracketGroups(stmt)
-  if '\n' in stmt:
-    return stmt # ignore comments in multi-line imports
+  let commentStart = importList.find('#')
+  if commentStart < 0:
+    return sortCommaList(importList)
+  if '\n' in importList:
+    return importList # ignore comments in multi-line imports
 
-  sortBracketGroups(stmt[0 ..< commentIdx]) & stmt[commentIdx .. ^1]
+  sortCommaList(importList[0 ..< commentStart]) & importList[commentStart .. ^1]
 
-func process(content: string): string =
+func sortAllImports(source: string): string =
+  let lines = source.split('\n')
   var
     output: seq[string]
-    inString = false
-    idx = 0
-  let lines = content.split('\n')
+    inMultiLineStr = false
+    currentLine = 0
 
-  while idx < lines.len:
+  while currentLine < lines.len:
     let
-      line = lines[idx]
-      code = line.strip(trailing = false)
-      indent = line.len - code.len
-      isImport =
-        not inString and code.startsWith("import") and
-        (code.len == "import".len or code["import".len] notin IdentChars)
+      line = lines[currentLine]
+      baseIndent = line.indentWidth
+      unindented = line[baseIndent .. ^1]
 
-    inc(idx)
+      isImport =
+        not inMultiLineStr and unindented.startsWith("import") and
+        (unindented.len == "import".len or unindented["import".len] notin IdentChars)
+
+    inc(currentLine)
     if line.count("\"\"\"") mod 2 == 1:
-      inString = not inString
+      inMultiLineStr = not inMultiLineStr
     if not isImport:
       output.add(line)
       continue
 
     # Continuation lines = indented deeper than "import"
-    var stmt = line[indent + "import".len .. ^1]
-    while idx < lines.len and lines[idx].strip().len > 0 and
-        lines[idx].len - lines[idx].strip(trailing = false).len > indent:
-      stmt.add("\n" & lines[idx])
-      inc(idx)
-    output.add(line[0 ..< indent + "import".len] & sortImport(stmt))
+    let keywordEnd = baseIndent + "import".len
+    var importList = line[keywordEnd .. ^1]
+    while currentLine < lines.len and not lines[currentLine].isEmptyOrWhitespace and
+        lines[currentLine].indentWidth > baseIndent:
+      importList.add("\n" & lines[currentLine])
+      inc(currentLine)
+    output.add(line[0 ..< keywordEnd] & sortImportList(importList))
 
   output.join("\n")
 
 when isMainModule:
   if paramCount() < 1:
-    echo "Usage: ", getAppFilename(), " <filename.nim>"
+    echo "Usage: ", getAppFilename(), " <filename.nim> ..."
     quit(1)
 
   var err: bool
@@ -113,9 +119,9 @@ when isMainModule:
       err = true
       continue
     let
-      input = file.readFile()
-      output = input.process()
-    if output != input:
-      writeFile(file, output)
+      original = file.readFile()
+      updated = original.sortAllImports()
+    if updated != original:
+      file.writeFile(updated)
   if err:
     quit(1)
