@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - '**.nim'
+      - "**.nim"
   pull_request:
     paths:
-      - '**.nim'
+      - "**.nim"
 
 jobs:
   test:
@@ -15,8 +15,8 @@ jobs:
     strategy:
       matrix:
         nim:
-          - '1.0.0'
-          - 'stable'
+          - "2.2.2"
+          - "stable"
     steps:
       - uses: actions/checkout@v4
       - name: Setup nim

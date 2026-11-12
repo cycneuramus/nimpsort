@@ -9,4 +9,4 @@ bin = @["nimpsort"]
 
 # Dependencies
 
-requires "nim >= 1.0.0"
+requires "nim >= 2.2.2"
