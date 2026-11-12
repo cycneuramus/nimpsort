@@ -33,9 +33,9 @@ func splitImportGroups(line: string): seq[string] =
 
   result.add(line[itemStart .. ^1])
 
-func sortImportGroup(group: string): string =
+func sortImportGroups(groups: string): string =
   var
-    rawGroups = group.splitImportGroups()
+    rawGroups = groups.splitImportGroups()
     sortedGroups: seq[string]
 
   for rawGroup in rawGroups:
@@ -51,7 +51,7 @@ func sortImportGroup(group: string): string =
     if bracketOpen >= 0 and bracketClose > bracketOpen:
       let bracketed = item[bracketOpen + 1 ..< bracketClose]
       item =
-        item[0 .. bracketOpen] & sortImportGroup(bracketed) & item[bracketClose .. ^1]
+        item[0 .. bracketOpen] & sortImportGroups(bracketed) & item[bracketClose .. ^1]
     sortedGroups.add(item)
 
   sortedGroups.sort()
@@ -66,20 +66,20 @@ func sortImportGroup(group: string): string =
 
   rawGroups.join(",")
 
-func sortImportBody(body: string): string =
+func sortImportLines(lines: string): string =
   let
-    commentStart = body.find('#')
+    commentStart = lines.find('#')
     (code, comment) =
       if commentStart >= 0:
-        (body[0 ..< commentStart], body[commentStart .. ^1])
+        (lines[0 ..< commentStart], lines[commentStart .. ^1])
       else:
-        (body, "")
+        (lines, "")
 
-  let hasCommentInMultiline = comment.len > 0 and '\n' in body
+  let hasCommentInMultiline = comment.len > 0 and '\n' in lines
   if hasCommentInMultiline or not code.safeToSort:
-    return body
+    return lines
 
-  code.sortImportGroup() & comment
+  code.sortImportGroups() & comment
 
 func isImportStart(line: string): bool =
   let code = line.strip(trailing = false)
@@ -112,13 +112,13 @@ func sortImports(source: string): string =
     let
       indent = line.indentWidth
       keywordEnd = indent + importKeyword.len
-    var importBody = line[keywordEnd .. ^1]
+    var importLines = line[keywordEnd .. ^1]
 
     # Collect indented continuation lines belonging to this import
     while nextLine < lines.len and lines[nextLine].continuesImport(indent):
-      importBody.add("\n" & lines[nextLine])
+      importLines.add("\n" & lines[nextLine])
       inc(nextLine)
-    output.add(line[0 ..< keywordEnd] & sortImportBody(importBody))
+    output.add(line[0 ..< keywordEnd] & sortImportLines(importLines))
 
   output.join("\n")
 
